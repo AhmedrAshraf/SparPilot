@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
   View,
@@ -15,8 +15,8 @@ import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Send, Search, TrendingUp, Brain, Package, Sparkles } from 'lucide-react-native';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
-import { ChatMessage } from '@/types/chat';
-import { askGPT } from '@/utils/askGPT';
+import { ChatMessage } from '../../types/chat';
+import { askGPT } from '../../utils/askGPT';
 
 const SYSTEM_MESSAGE: ChatMessage = {
   role: 'system',
@@ -67,6 +67,8 @@ const QUICK_ACTIONS = [
   },
 ];
 
+const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
+
 function CoachScreen() {
   const isMounted = useRef(true);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -75,35 +77,10 @@ function CoachScreen() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [currentText, setCurrentText] = useState('');
   const scrollViewRef = useRef<ScrollView>(null);
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const hasShownWelcomeRef = useRef(false);
 
-  useEffect(() => {
-    let mounted = true;
-    if (hasShownWelcomeRef.current) return;
-    hasShownWelcomeRef.current = true;
-
-    (async () => {
-      for (const msg of WELCOME_MESSAGES) {
-        if (!mounted || !isMounted.current) break;
-        await typeMessage(msg);
-        if (isMounted.current) {
-          setMessages(prev => [...prev, { role: 'assistant', content: msg }]);
-        }
-        await delay(500);
-      }
-    })();
-
-    return () => {
-      mounted = false;
-      isMounted.current = false;
-      clearTimeout(typingTimeoutRef.current);
-    };
-  }, []);
-
-  const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
-
-  const typeMessage = (message: string): Promise<void> => {
+  const typeMessage = useCallback((message: string): Promise<void> => {
     return new Promise(resolve => {
       let i = 0;
       const type = () => {
@@ -120,7 +97,34 @@ function CoachScreen() {
       };
       type();
     });
-  };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    if (hasShownWelcomeRef.current) return;
+    hasShownWelcomeRef.current = true;
+
+    const showWelcomeMessages = async () => {
+      for (const msg of WELCOME_MESSAGES) {
+        if (!mounted || !isMounted.current) break;
+        await typeMessage(msg);
+        if (isMounted.current) {
+          setMessages(prev => [...prev, { role: 'assistant', content: msg }]);
+        }
+        await delay(500);
+      }
+    };
+
+    showWelcomeMessages();
+
+    return () => {
+      mounted = false;
+      isMounted.current = false;
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, [typeMessage]);
 
   const handleSend = async (text?: string) => {
     const content = text || inputText.trim();

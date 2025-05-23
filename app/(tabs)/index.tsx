@@ -4,9 +4,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { ArrowRight } from 'lucide-react-native';
 
-import SearchBar from '@/components/SearchBar';
-import CategoryGrid from '@/components/CategoryGrid';
-import { CATEGORIES } from '@/constants/categories';
+import SearchBar from '../../components/SearchBar';
+import CategoryGrid from '../../components/CategoryGrid';
+import { CATEGORIES } from '../../constants/categories';
 
 export default function HomeScreen() {
   return (

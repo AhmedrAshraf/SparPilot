@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useFonts, Inter_400Regular, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
-import { useFrameworkReady } from '@/hooks/useFrameworkReady';
-import SplashScreen from '@/components/SplashScreen';
+import { useFonts } from 'expo-font';
+import { useFrameworkReady } from '../hooks/useFrameworkReady';
+import SplashScreen from '../components/SplashScreen';
 import { View, Text, ActivityIndicator } from 'react-native';
 import React from 'react';
 
@@ -26,12 +26,13 @@ export default function RootLayout() {
   const [showSplash, setShowSplash] = useState(true);
 
   const [fontsLoaded, fontError] = useFonts({
-    'Inter-Regular': Inter_400Regular,
-    'Inter-SemiBold': Inter_600SemiBold,
-    'Inter-Bold': Inter_700Bold,
+    'Inter': require('@expo-google-fonts/inter/Inter_400Regular.ttf'),
   });
 
   useEffect(() => {
+    if (fontError) {
+      console.error('Error loading fonts:', fontError);
+    }
     console.log('RootLayout mount', { ready, fontsLoaded, fontError, showSplash });
   }, [ready, fontsLoaded, fontError, showSplash]);
 

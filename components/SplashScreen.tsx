@@ -55,7 +55,7 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
   return (
     <Animated.View style={[styles.container, screenStyle]}>
       <Image
-        source={require('@/assets/images/image.png')}
+        source={require('../assets/images/image.png')}
         style={styles.backgroundImage}
       />
       <LinearGradient

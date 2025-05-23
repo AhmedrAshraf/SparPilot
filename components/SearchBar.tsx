@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { StyleSheet, TextInput, View, Platform, Keyboard, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Search, ArrowRight } from 'lucide-react-native';
@@ -27,101 +27,139 @@ export default function SearchBar() {
   const [isFocused, setIsFocused] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [inputValue, setInputValue] = useState('');
-  const timeoutRef = useRef<NodeJS.Timeout>();
-  const inactivityTimeoutRef = useRef<NodeJS.Timeout>();
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const inactivityTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const isMounted = useRef(true);
 
-  const resetAnimation = () => {
+  // Cleanup function to prevent state updates after unmounting
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      if (inactivityTimeoutRef.current) {
+        clearTimeout(inactivityTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const resetAnimation = useCallback(() => {
+    if (!isMounted.current) return;
     setDisplayText('');
     setIsTyping(true);
     setIsDeleting(false);
-  };
+  }, []);
 
-  const handleInputFocus = () => {
+  const handleInputFocus = useCallback(() => {
+    if (!isMounted.current) return;
     setIsFocused(true);
     setIsPaused(true);
-  };
+  }, []);
 
-  const handleInputBlur = () => {
+  const handleInputBlur = useCallback(() => {
+    if (!isMounted.current) return;
     setIsFocused(false);
     if (!inputValue) {
       const timeout = setTimeout(() => {
-        setIsPaused(false);
-        resetAnimation();
+        if (isMounted.current) {
+          setIsPaused(false);
+          resetAnimation();
+        }
       }, 10000);
       inactivityTimeoutRef.current = timeout;
     }
-  };
+  }, [inputValue, resetAnimation]);
 
-  const handleInputChange = (text: string) => {
+  const handleInputChange = useCallback((text: string) => {
+    if (!isMounted.current) return;
     setInputValue(text);
     if (inactivityTimeoutRef.current) {
       clearTimeout(inactivityTimeoutRef.current);
     }
-  };
+  }, []);
 
-  const handleSearch = () => {
-    if (!inputValue.trim()) return;
+  const handleSearch = useCallback(() => {
+    if (!inputValue.trim() || !isMounted.current) return;
     
     Keyboard.dismiss();
     router.push(`/search/${encodeURIComponent(inputValue.trim())}`);
     setInputValue('');
-  };
+  }, [inputValue, router]);
 
-  useEffect(() => {
-    if (isPaused) return;
+  const animateText = useCallback(() => {
+    if (!isMounted.current || isPaused) return;
 
     const currentPlaceholder = PLACEHOLDERS[currentIndex];
 
     if (isTyping) {
       if (displayText.length < currentPlaceholder.length) {
         timeoutRef.current = setTimeout(() => {
-          setDisplayText(currentPlaceholder.slice(0, displayText.length + 1));
+          if (isMounted.current) {
+            setDisplayText(currentPlaceholder.slice(0, displayText.length + 1));
+          }
         }, TYPING_SPEED);
       } else {
         timeoutRef.current = setTimeout(() => {
-          setIsTyping(false);
+          if (isMounted.current) {
+            setIsTyping(false);
+          }
         }, PAUSE_DURATION);
       }
     } else if (isDeleting) {
       if (displayText.length > 0) {
         timeoutRef.current = setTimeout(() => {
-          setDisplayText(displayText.slice(0, -1));
+          if (isMounted.current) {
+            setDisplayText(displayText.slice(0, -1));
+          }
         }, BACKSPACE_SPEED);
       } else {
-        setIsDeleting(false);
-        setIsTyping(true);
-        setCurrentIndex((prevIndex) => (prevIndex + 1) % PLACEHOLDERS.length);
+        if (isMounted.current) {
+          setIsDeleting(false);
+          setIsTyping(true);
+          setCurrentIndex((prevIndex: number) => (prevIndex + 1) % PLACEHOLDERS.length);
+        }
       }
     } else {
       timeoutRef.current = setTimeout(() => {
-        setIsDeleting(true);
+        if (isMounted.current) {
+          setIsDeleting(true);
+        }
       }, PAUSE_DURATION);
     }
+  }, [displayText, isTyping, isDeleting, currentIndex, isPaused]);
 
+  useEffect(() => {
+    animateText();
     return () => {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [displayText, isTyping, isDeleting, currentIndex, isPaused]);
+  }, [animateText]);
 
   useEffect(() => {
     const keyboardDismiss = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
       () => {
+        if (!isMounted.current) return;
         setIsFocused(false);
         if (!inputValue) {
           const timeout = setTimeout(() => {
-            setIsPaused(false);
-            resetAnimation();
+            if (isMounted.current) {
+              setIsPaused(false);
+              resetAnimation();
+            }
           }, 10000);
           inactivityTimeoutRef.current = timeout;
         }
       }
     );
 
-    return () => keyboardDismiss.remove();
-  }, [inputValue]);
+    return () => {
+      keyboardDismiss.remove();
+    };
+  }, [inputValue, resetAnimation]);
 
   return (
     <View style={styles.container}>
